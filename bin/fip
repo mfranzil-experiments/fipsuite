@@ -1,0 +1,19 @@
+#!/bin/bash
+
+HELP="Usage: $0 [parse|get]
+
+common:
+    -h                        Show this help
+
+fip get:
+    -c <committee>            Committee of the match
+    --- exactly one of the following ---
+    -l                        List all available matches
+    -m <match>                Number of the match
+    -f <query>                Search for a match with a given query
+
+fip parse:
+    -i <input>                Input file
+"
+
+printf "$HELP"
