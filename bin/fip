@@ -1,19 +1,157 @@
 #!/bin/bash
 
-HELP="Usage: $0 [parse|get]
+HELP="Usage: fip [parse|get]
 
 common:
-    -h                        Show this help
+-h             --help              Show this help
 
 fip get:
-    -c <committee>            Committee of the match
-    --- exactly one of the following ---
-    -l                        List all available matches
-    -m <match>                Number of the match
-    -f <query>                Search for a match with a given query
+-c <committee> --committee         Committee of the match
+-l             --list           *  List all available matches
+-m <match>     --match          *  Number of the match
+-f <query>     --find           *  Search for a match with a given query
 
 fip parse:
-    -i <input>                Input file
-"
+-i <input>     --input             Input file"
 
-printf "$HELP"
+HELP_GET="Usage: fip get [-c <committee>] [-l|-m <match>|-f <query>] 
+
+-h             --help              Show this help
+-c <committee> --committee         Committee of the match
+-l             --list           *  List all available matches
+-m <match>     --match          *  Number of the match
+-f <query>     --find           *  Search for a match with a given query"
+
+HELP_PARSE="Usage: fip parse [-i <input>]
+
+-h             --help              Show this help
+-i <input>     --input             Input file"
+
+# Parse arguments
+case $1 in
+parse)
+    mode="parse"
+    shift
+    ;;
+get)
+    mode="get"
+    shift
+    ;;
+-h | --help)
+    echo "$HELP"
+    exit 0
+    ;;
+*)
+    echo "Provide one of [parse|get] first."
+    exit 1
+    ;;
+esac
+
+while [[ "$#" -gt 0 ]]; do
+    # First check the first argument
+
+    case $1 in
+    -h | --help)
+        echo "$HELP"
+        exit 0
+        ;;
+    -c | --committee)
+        committee="$2"
+        shift
+        ;;
+    -l | --list)
+        list=1
+        ;;
+    -m | --match)
+        match="$2"
+        shift
+        ;;
+    -f | --find)
+        find="$2"
+        shift
+        ;;
+    -i | --input)
+        input="$2"
+        shift
+        ;;
+    *)
+        echo "Unknown parameter passed: $1"
+        exit 1
+        ;;
+    esac
+    shift
+done
+
+# Get base dir of the script
+script_path="$(dirname "$0")"
+src_path="$(realpath "$script_path/../src")"
+parse_exec="python3 $(realpath "$src_path/message_parser.py")"
+get_exec="$(realpath "$src_path/fiptool")"
+
+if [[ "$mode" == "parse" ]]; then
+    # Explicit help
+    if [[ -n "$help" ]]; then
+        echo "$HELP_PARSE"
+        exit 0
+    fi
+
+    # Wrong parameters
+    if [[ -n "$committee" || -n "$list" || -n "$match" || -n "$find" ]]; then
+        echo "$HELP_PARSE"
+        exit 1
+    fi
+
+    # No input file
+    if [[ -z "$input" ]]; then
+        echo "$HELP_PARSE"
+        exit 1
+    fi
+
+    echo "Parsing $input..."
+    echo "$parse_exec" --input "$(realpath "$input")" | bash | jq
+
+elif [[ "$mode" == "get" ]]; then
+    # Explicit help
+    if [[ -n "$help" ]]; then
+        echo "$HELP_GET"
+        exit 0
+    fi
+
+    # Wrong parameters
+    if [[ -n "$input" ]]; then
+        echo "$HELP_GET"
+        exit 1
+    fi
+
+    # No committee
+    if [[ -z "$committee" ]]; then
+        echo "Provide a committee."
+        echo "$HELP_GET"
+        exit 1
+    fi
+
+    # Exactly one of list, match or find
+    if [[ -z "$list" && -z "$match" && -z "$find" ]]; then
+        echo "Provide exactly one of [list|match|find]."
+        echo "$HELP_GET"
+        exit 1
+    fi
+
+    if [[ -n "$list" && -n "$match" || -n "$list" && -n "$find" || -n "$match" && -n "$find" ]]; then
+        echo "Provide exactly one of [list|match|find]."
+        echo "$HELP_GET"
+        exit 1
+    fi
+
+    if [[ -n "$list" ]]; then
+        echo "Listing matches for committee $committee..."
+        echo "I'm sorry, this feature is not yet implemented."
+        # echo "$get_exec" "$committee" --list | bash
+    elif [[ -n "$match" ]]; then
+        echo "Getting match $match for committee $committee..."
+        echo "$get_exec" "$committee" "$match" | bash | jq
+    elif [[ -n "$find" ]]; then
+        echo "Finding match for committee $committee..."
+        echo "$get_exec" "$committee" - "$find" | bash
+    fi
+fi

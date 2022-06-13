@@ -80,18 +80,21 @@ function getdata() {
     fi
 }
 
-# if [[ -z "$2" ]]; then
-#     for i in {60..130}; do
-#         echo "Gara $((i))"
-#         echo "----------------------------------"
-#         RESULT=$(getdata "$1" "$i")
-#         # rm -f "fip-$1-$i.json"
-#         # echo "$RESULT" >> "fip-$1-$i.json"
-#         echo "$RESULT" | jq ".campionato, .gara"
-#         sleep 1
-#     done
-# else
-# echo "$1, $2"
+if [[ -z "$2" ]]; then
+    echo "Listing all matches up to match number 10000."
+    echo "Unfortunately, fip.it doesn't know how many matches there are."
+    echo "To stop, press Ctrl+C."
+    for i in {1..10000}; do
+        echo "Gara $((i))"
+        echo "----------------------------------"
+        RESULT=$(getdata "$1" "$i")
+        # rm -f "fip-$1-$i.json"
+        # echo "$RESULT" >> "fip-$1-$i.json"
+        echo "$RESULT" | jq ".campionato, .gara"
+        sleep 1
+    done
+fi
+echo "$1, $2"
 
 if [[ -n "$3" ]]; then
     # Find mode
