@@ -80,38 +80,52 @@ function getdata() {
     fi
 }
 
-if [[ -z "$2" ]]; then
-    echo "Listing all matches up to match number 10000."
-    echo "Unfortunately, fip.it doesn't know how many matches there are."
-    echo "To stop, press Ctrl+C."
-    for i in {1..10000}; do
-        echo "Gara $((i))"
-        echo "----------------------------------"
-        RESULT=$(getdata "$1" "$i")
-        # rm -f "fip-$1-$i.json"
-        # echo "$RESULT" >> "fip-$1-$i.json"
-        echo "$RESULT" | jq ".campionato, .gara"
-        sleep 1
-    done
-fi
-echo "$1, $2"
+function getdata_list() {
+    # Parameters: $1 = comitato [$2 = inizio $3 = fine]
+    if [[ -z "$2" ]]; then
+        inizio=1
+    else
+        inizio=$2
+    fi
 
-if [[ -n "$3" ]]; then
-    # Find mode
+    if [[ -z "$3" ]]; then
+        fine=10000
+    else
+        fine=$3
+    fi
+
+
+    echo "["
+    for ((i = inizio; i <= fine; i++)); do
+        RESULT=$(getdata "$1" "$i")
+        echo "$RESULT" | jq
+        
+        if [[ $i != "$fine" ]]; then
+            echo ","
+        fi
+
+        sleep $((RANDOM % ((i / 10) + 1) + 1 ))
+    done
+    echo "]"
+}
+
+function getdata_find() {
+    # Parameters: $1 = comitato $2 = search string
     n=0
-    search="$(echo "$3" | tr '[:upper:]' '[:lower:]')"
+    search="$(echo "$2" | tr '[:upper:]' '[:lower:]')"
     while true; do
         __DATA=$(getdata "$1" "$n" | tr '[:upper:]' '[:lower:]')
         if [[ "$__DATA" == *"$search"* ]]; then
-            echo "Partita $1/$n"
+            echo "Match $1/$n" >&2
             echo "$__DATA" | grep "$search"
             # echo "$__DATA" | jq
         fi
         n=$((n + 1))
 
     done
-else
+}
+
+function getdata_given() {
     RESULT=$(getdata "$@")
-    echo "$RESULT"
-fi
-#fi
+    echo "$RESULT" | jq
+}

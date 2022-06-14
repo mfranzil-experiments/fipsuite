@@ -8,6 +8,7 @@ common:
 fip get:
 -c <committee> --committee         Committee of the match
 -l             --list           *  List all available matches
+-r <range>     --range          *  List all matches in the range
 -m <match>     --match          *  Number of the match
 -f <query>     --find           *  Search for a match with a given query
 
@@ -19,6 +20,7 @@ HELP_GET="Usage: fip get [-c <committee>] [-l|-m <match>|-f <query>]
 -h             --help              Show this help
 -c <committee> --committee         Committee of the match
 -l             --list           *  List all available matches
+-r <range>     --range          *  List all matches in the range
 -m <match>     --match          *  Number of the match
 -f <query>     --find           *  Search for a match with a given query"
 
@@ -38,11 +40,11 @@ get)
     shift
     ;;
 -h | --help)
-    echo "$HELP"
+    echo "$HELP" >&2
     exit 0
     ;;
 *)
-    echo "Provide one of [parse|get] first."
+    echo "Provide one of [parse|get] first." >&2
     exit 1
     ;;
 esac
@@ -61,6 +63,10 @@ while [[ "$#" -gt 0 ]]; do
         ;;
     -l | --list)
         list=1
+        ;;
+    -r | --range)
+        range="$2"
+        shift
         ;;
     -m | --match)
         match="$2"
@@ -86,24 +92,24 @@ done
 script_path="$(dirname "$0")"
 src_path="$(realpath "$script_path/../src")"
 parse_exec="python3 $(realpath "$src_path/message_parser.py")"
-get_exec="$(realpath "$src_path/fiptool")"
+source "$src_path/fipfunctions.sh"
 
 if [[ "$mode" == "parse" ]]; then
     # Explicit help
     if [[ -n "$help" ]]; then
-        echo "$HELP_PARSE"
+        echo "$HELP_PARSE" >&2
         exit 0
     fi
 
     # Wrong parameters
-    if [[ -n "$committee" || -n "$list" || -n "$match" || -n "$find" ]]; then
-        echo "$HELP_PARSE"
+    if [[ -n "$committee" || -n "$list" || -n "$range" || -n "$match" || -n "$find" ]]; then
+        echo "$HELP_PARSE" >&2
         exit 1
     fi
 
     # No input file
     if [[ -z "$input" ]]; then
-        echo "$HELP_PARSE"
+        echo "$HELP_PARSE" >&2
         exit 1
     fi
 
@@ -113,45 +119,66 @@ if [[ "$mode" == "parse" ]]; then
 elif [[ "$mode" == "get" ]]; then
     # Explicit help
     if [[ -n "$help" ]]; then
-        echo "$HELP_GET"
+        echo "$HELP_GET" >&2
         exit 0
     fi
 
     # Wrong parameters
     if [[ -n "$input" ]]; then
-        echo "$HELP_GET"
+        echo "$HELP_GET" >&2
         exit 1
     fi
 
     # No committee
     if [[ -z "$committee" ]]; then
-        echo "Provide a committee."
-        echo "$HELP_GET"
+        echo "Provide a committee." >&2
+        echo "$HELP_GET" >&2
         exit 1
     fi
 
-    # Exactly one of list, match or find
-    if [[ -z "$list" && -z "$match" && -z "$find" ]]; then
-        echo "Provide exactly one of [list|match|find]."
-        echo "$HELP_GET"
-        exit 1
-    fi
-
-    if [[ -n "$list" && -n "$match" || -n "$list" && -n "$find" || -n "$match" && -n "$find" ]]; then
-        echo "Provide exactly one of [list|match|find]."
-        echo "$HELP_GET"
+    # Exactly one of list, match, find or range must be set
+    if [[ -n "$list" && -z "$match" && -z "$find" && -z "$range" ]] ||
+        [[ -z "$list" && -n "$match" && -z "$find" && -z "$range" ]] ||
+        [[ -z "$list" && -z "$match" && -n "$find" && -z "$range" ]] ||
+        [[ -z "$list" && -z "$match" && -z "$find" && -n "$range" ]]; then
+        printf ""
+    else
+        echo "Provide exactly one of [list|match|find|range]." >&2
+        echo "$HELP_GET" >&2
         exit 1
     fi
 
     if [[ -n "$list" ]]; then
-        echo "Listing matches for committee $committee..."
-        echo "I'm sorry, this feature is not yet implemented."
-        # echo "$get_exec" "$committee" --list | bash
+        echo "Listing matches for committee $committee..." >&2
+        echo "This may take a while. To stop, press Ctrl+C." >&2
+        getdata_list "$committee"
+    elif [[ -n "$range" ]]; then
+        start="$(echo "$range" | cut -d '-' -f 1)"
+        end="$(echo "$range" | cut -d '-' -f 2)"
+
+        if [[ -z "$start" || -z "$end" ]]; then
+            echo "Error: Invalid range." >&2
+            exit 1
+        fi
+
+        if [[ "$start" -gt "$end" ]]; then
+            echo "Error: Start match is greater than end match." >&2
+            exit 1
+        fi
+
+        if [[ "$start" -le 0 ]]; then
+            echo "Error: Start match is less than or equal to zero." >&2
+            exit 1
+        fi
+
+        echo "Listing matches for committee $committee from match $start to match $end..." >&2
+        echo "This may take a while. To stop, press Ctrl+C." >&2
+        getdata_list "$committee" "$start" "$end"
     elif [[ -n "$match" ]]; then
-        echo "Getting match $match for committee $committee..."
-        echo "$get_exec" "$committee" "$match" | bash | jq
+        echo "Getting match $match for committee $committee..." >&2
+        getdata_given "$committee" "$match"
     elif [[ -n "$find" ]]; then
-        echo "Finding match for committee $committee..."
-        echo "$get_exec" "$committee" - "$find" | bash
+        echo "Finding match for committee $committee..." >&2
+        getdata_find "$committee" "$find"
     fi
 fi
