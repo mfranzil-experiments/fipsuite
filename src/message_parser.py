@@ -3,7 +3,10 @@ import json
 
 
 def parse(filename="matches.json"):
-    data = json.loads(open(filename).read())
+    if filename.lower().endswith('json'):
+        data = json.loads(open(filename).read())
+    else:
+        data = open(filename).readlines()
     for item in data:
         words = item.split(" ")
         gara = {}

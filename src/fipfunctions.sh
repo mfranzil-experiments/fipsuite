@@ -76,8 +76,12 @@ function getdata() {
         echo "$DATA" |
             sed "s/,\"\"//g" |
             grep -E "^(\"|\}|\{)" |
-            iconv -f utf-8 -t utf-8 --byte-subst="" # | tr '\n' ' '
+            iconv -f utf-8 -t utf-8 --byte-subst="" | # | tr '\n' ' '
+            jq ". +  {\"comitato\": \"${COMITATO}\"}"
     fi
+
+    # jq
+
 }
 
 function getdata_list() {
@@ -109,20 +113,32 @@ function getdata_list() {
     echo "]"
 }
 
+function terminate_squarebracket() {
+    echo "{}]"
+    exit 0
+}
+
 function getdata_find() {
     # Parameters: $1 = comitato $2 = search string
     n=0
+
+    trap terminate_squarebracket SIGINT SIGTERM
+
     search="$(echo "$2" | tr '[:upper:]' '[:lower:]')"
+    echo "["
     while true; do
-        __DATA=$(getdata "$1" "$n" | tr '[:upper:]' '[:lower:]')
-        if [[ "$__DATA" == *"$search"* ]]; then
-            echo "Match $1/$n" >&2
-            echo "$__DATA" | grep "$search"
+        __DATA=$(getdata "$1" "$n")
+        lower_data="$(echo "$__DATA" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$lower_data" == *"$search"* ]]; then
+            echo "[INFO] Match $n@$1" >&2
+            echo "$__DATA"
+            echo ","
             # echo "$__DATA" | jq
         fi
         n=$((n + 1))
 
     done
+    echo "]"
 }
 
 function getdata_given() {

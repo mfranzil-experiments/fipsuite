@@ -114,7 +114,11 @@ if [[ "$mode" == "parse" ]]; then
     fi
 
     echo "Parsing $input..."
-    echo "$parse_exec" --input "$(realpath "$input")" | bash | jq
+    out=$(echo "$parse_exec" --input "$(realpath "$input")" | bash)
+    echo $out | jq
+    # Obtain data from input file
+    getdata_given "$(echo "$out" | jq .comitato | sed 's/"//g')" "$(echo "$out" | jq .numero_gara)" 
+
 
 elif [[ "$mode" == "get" ]]; then
     # Explicit help
